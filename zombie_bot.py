@@ -289,6 +289,12 @@ def send_storage(call):
     else:
         bot.send_message(call.message.chat.id, "Сначала создайте профиль, написав - <code>/start</code>.", parse_mode='HTML')
 
+@bot.message_handler(func=lambda message: message.from_user.id in user_profiles)
+def update_user_name(message):
+    user_id = str(message.from_user.id)
+    user_profiles[user_id]["first_name"] = message.from_user.first_name
+    save_profiles()
+
 @bot.message_handler(func=lambda message: message.text.lower() == "бонус")
 def claim_bonus(message):
     user_id = str(message.from_user.id)
@@ -306,163 +312,69 @@ def claim_bonus(message):
     else:
         bot.send_message(message.chat.id, "Сначала создайте профиль, написав - <code>/start</code>.", parse_mode='HTML')
 
-@bot.callback_query_handler(func=lambda call: call.data == 'promo_code')
-def promo_code(call):
-    bot.send_message(call.message.chat.id, "Введите промокод в формате 'промокод: <ваш_код>':")
-
-@bot.message_handler(func=lambda message: message.text.lower().startswith("промокод: "))
-def handle_promo_code_input(message):
+@bot.message_handler(func=lambda message: message.text.lower().startswith("купить оружие"))
+def buy_weapon(message):
     user_id = str(message.from_user.id)
-    promo_code = message.text.split(": ")[1].strip()
-    success, amount = activate_promo_code(user_id, promo_code)
+    profile_info = user_profiles.get(user_id)
 
-    if success:
-        user_profiles[user_id]["w_coin"] += amount
-        save_profiles()
-        bot.send_message(message.chat.id, f"Промокод активирован! Вы получили {amount} ŵ-coin.")
-    elif amount == 0:
-        bot.send_message(message.chat.id, "Этот промокод уже был использован.")
-    else:
-        bot.send_message(message.chat.id, "Неверный промокод.")
+    if profile_info is None:
+        bot.send_message(message.chat.id, "Сначала создайте профиль, написав - <code>/start</code>.", parse_mode='HTML')
+        return
 
-@bot.callback_query_handler(func=lambda call: call.data == 'upload_avatar_url')
-def request_avatar_url(call):
-    bot.send_message(call.message.chat.id, "Пожалуйста, отправьте URL для загрузки аватара.")
-
-@bot.message_handler(func=lambda message: message.text.startswith("http"))
-def upload_avatar(message):
-    user_id = str(message.from_user.id)
-    user_profiles[user_id]["avatar"] = message.text
-    save_profiles()
-    bot.send_message(message.chat.id, "Ваш аватар успешно обновлён.")
-
-@bot.callback_query_handler(func=lambda call: call.data == 'remove_avatar')
-def remove_avatar(call):
-    user_id = str(call.from_user.id)
-    user_profiles[user_id]["avatar"] = None
-    save_profiles()
-    bot.send_message(call.message.chat.id, "Ваша аватарка была успешно удалена.")
-
-@bot.callback_query_handler(func=lambda call: call.data == 'exchange_w_coin')
-def exchange_w_coin(call):
-    bot.send_message(call.message.chat.id, "Введите команду для обмена, например:\n'<code>обменять 1 R</code>'\n'<code>обменять 1 B</code>'\n'<code>обменять 1 N</code>'\n'<code>обменять 1 G</code>'\n'<code>обменять 1 P</code>'.",parse_mode='HTML')
-
-@bot.message_handler(func=lambda message: message.text.lower().startswith("обменять"))
-def exchange_vip(message):
-    user_id = str(message.from_user.id)
     try:
-        parts = message.text.split()
-        quantity = int(parts[1])
-        nail_type = parts[2].upper()
-        
-        exchange_rates = {
-            "R": ("rusty", 500000),
-            "B": ("broken", 50000),
-            "N": ("normal", 5000),
-            "G": ("golden", 500),
-            "P": ("platinum", 50)
-        }
+        quantity = int(message.text.split()[2])  # Получаем количество
+        total_price = 6000 * quantity  # Цена за одно оружие
 
-        if nail_type in exchange_rates:
-            nail_name, nails_per_unit = exchange_rates[nail_type]
-            total_nails = nails_per_unit * quantity
-            profile_info = user_profiles[user_id]
-            if profile_info['w_coin'] >= quantity:  # Проверяем достаточно ли ВИП валюты
-                profile_info['w_coin'] -= quantity  # Уменьшаем ВИП валюту
-                profile_info['nails'][nail_name] += total_nails  # Добавляем гвозди
-                save_profiles()
-                bot.send_message(message.chat.id, f"Вы обменяли {quantity} ŵ-coin на {total_nails} {nail_name} гвоздей.")
-            else:
-                bot.send_message(message.chat.id, "Недостаточно ВИП валюты для обмена!")
+        if profile_info['nails']['normal'] >= total_price:
+            profile_info['nails']['normal'] -= total_price
+            profile_info['weapons'] += quantity  # Увеличиваем количество оружия
+            save_profiles()
+            bot.send_message(message.chat.id, f"Вы успешно купили {quantity} оружия!")
         else:
-            bot.send_message(message.chat.id, "Неверный тип гвоздей для обмена!")
+            bot.send_message(message.chat.id, "У вас недостаточно гвоздей для покупки.")
     except (IndexError, ValueError):
-        bot.send_message(message.chat.id, "Введите команду в формате: 'обменять <количество> <тип>'")
+        bot.send_message(message.chat.id, "Пожалуйста, укажите количество, например: 'купить оружие 1'.")
 
-@bot.callback_query_handler(func=lambda call: call.data == 'upgrade_base')
-def upgrade_base(call):
-    user_id = str(call.from_user.id)
-    profile_info = user_profiles[user_id]
-
-    required_energy = 30
-    required_nails = 15000  # Примерная стоимость улучшения
-
-    if profile_info['energy'] >= required_energy and profile_info['nails']['normal'] >= required_nails:
-        profile_info['energy'] -= required_energy
-        profile_info['nails']['normal'] -= required_nails
-        profile_info['base_level'] += 1  # Увеличиваем уровень базы
-        save_profiles()
-        bot.send_message(call.message.chat.id, f"База успешно улучшена до уровня {profile_info['base_level']}!")
-    else:
-        bot.send_message(call.message.chat.id, f"Недостаточно ресурсов для улучшения базы.\nВам нужно {required_energy} энергии и {required_nails} нормальных гвоздей.")
-
-@bot.callback_query_handler(func=lambda call: call.data == 'raid_instructions')
-def raid_instructions(call):
-    bot.send_message(call.message.chat.id, "Чтобы запустить рейд, напишите 'Рейд <ID>', где <ID> - это ID пользователя, которого вы хотите зарейдить.")
-
-@bot.message_handler(func=lambda message: message.text.lower().startswith("рейд"))
-def raid_user(message):
+@bot.message_handler(func=lambda message: message.text.lower().startswith("купить медикаменты"))
+def buy_medkit(message):
     user_id = str(message.from_user.id)
-    target_id = message.text.split()[1]  # Получаем ID цели
+    profile_info = user_profiles.get(user_id)
 
-    if target_id not in user_profiles:
-        bot.send_message(message.chat.id, "Пользователь не найден.")
+    if profile_info is None:
+        bot.send_message(message.chat.id, "Сначала создайте профиль, написав - <code>/start</code>.", parse_mode='HTML')
         return
 
-    profile_info = user_profiles[user_id]
-    target_info = user_profiles[target_id]
+    try:
+        quantity = int(message.text.split()[2])  # Получаем количество
+        total_price = 9000 * quantity  # Цена за одну упаковку медикаментов
 
-    # Проверяем наличие необходимого ресурса
-    if profile_info['weapons'] < 5 or profile_info['medkits'] < 7:
-        bot.send_message(message.chat.id, f"Недостаточно ресурсов для рейда!\nВам нужно 5 оружия и 7 медикаментов.")
-        return
+        if profile_info['nails']['normal'] >= total_price:
+            profile_info['nails']['normal'] -= total_price
+            profile_info['medkits'] += quantity  # Увеличиваем количество медикаментов
+            save_profiles()
+            bot.send_message(message.chat.id, f"Вы успешно купили {quantity} медикаментов!")
+        else:
+            bot.send_message(message.chat.id, "У вас недостаточно гвоздей для покупки.")
+    except (IndexError, ValueError):
+        bot.send_message(message.chat.id, "Пожалуйста, укажите количество, например: 'купить медикаменты 1'.")
 
-    # Уменьшаем ресурсы
-    profile_info['weapons'] -= 5
-    profile_info['medkits'] -= 7
-
-    save_profiles()
-
-    bot.send_message(message.chat.id, "Рейд запущен, через 30 секунд он закончится.")
-    
-    # Запускаем таймер на 30 секунд
-    threading.Timer(30, complete_raid, args=(user_id, target_id)).start()
-
-def complete_raid(user_id, target_id):
-    profile_info = user_profiles[user_id]
-    target_info = user_profiles[target_id]
-    
-    success = random.choice([True, False])  # Случайный успех/неудача рейда
-    if success:
-        earned_rating = random.randint(60, 120)
-        target_loss = earned_rating // 2
-        profile_info['rating'] += earned_rating  # Увеличиваем рейтинг
-        target_info['rating'] -= target_loss  # Уменьшаем рейтинг цели
-
-        bot.send_message(user_id, f"{profile_info['first_name']} вы успешно зарейдили {target_info['first_name']} на {earned_rating} рейтинга!")
-        bot.send_message(target_id, f"{target_info['first_name']} вы были зарейдены и потеряли {target_loss} рейтинга.")
-    else:
-        penalty = random.choice([30, 120])
-        profile_info['rating'] -= penalty  # Уменьшаем рейтинг
-        bot.send_message(user_id, f"Рейд не удался! Вы потеряли {penalty} рейтинга.")
+# Функция для восстановления воды
+def restore_water():
+    while True:
+        time.sleep(600)  # Ждать 10 минут (600 секунд)
+        for user_id, profile_info in user_profiles.items():
+            if profile_info['water'] < 20:  # Проверяем, не превышает ли максимальное количество воды
+                profile_info['water'] += 1  # Увеличиваем количество воды на 1
+                if profile_info['water'] > 20:  # Ограничиваем максимальное количество воды
+                    profile_info['water'] = 20
+                save_profiles()  # Сохраняем изменения
+                print(f"Вода восстановлена для пользователя {user_id}. Теперь воды: {profile_info['water']}")
 
 def save_profiles():
     with open(PROFILES_FILE, 'w') as file:
         json.dump(user_profiles, file, indent=4)
 
-@bot.message_handler(func=lambda message: message.from_user.id in user_profiles)
-def update_user_name(message):
-    user_id = str(message.from_user.id)
-    user_profiles[user_id]["first_name"] = message.from_user.first_name
-    save_profiles()
-
-@bot.callback_query_handler(func=lambda call: True)  # Обработчик для всех других кнопок
-def handle_invalid_button(call):
-    user_id = str(call.from_user.id)
-    if user_id in user_profiles:
-        bot.send_message(call.message.chat.id, "Это не ваша база, вы не можете нажимать на эти кнопки!")
-    else:
-        bot.send_message(call.message.chat.id, "Сначала создайте профиль, написав - <code>/start</code>.", parse_mode='HTML')
-
 if __name__ == '__main__':
+    # Запускаем фоновую задачу для восстановления воды
+    threading.Thread(target=restore_water, daemon=True).start()
     bot.polling(none_stop=True)
