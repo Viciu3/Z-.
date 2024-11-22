@@ -136,18 +136,18 @@ def view_profile(message):
             bot.send_message(message.chat.id, "🌐 Ваш аватар: Нет аватарки.")
 
         profile_message = (
-            f"👤 Ваш профиль:\n"
-            f"🆔 : {user_id}\n"
-            f"🏢 Статус: {profile_info['status']}\n"
-            f"🪙 ŵ-coin: {profile_info.get('w_coin', 0)}\n"
-            f"🔩 Баланс: {profile_info.get('balance', 0)} гв.\n"
-            f"📊 Уровень базы: {profile_info.get('base_level', 1)}\n"
-            f"⭐️ Опыт: {profile_info['experience']}\n"
-            f"📅 Дата регистрации: {profile_info['registration_date']}\n"
-            f"💧 Вода: {water}/20 л.\n"
-            f"⚡️ Энергия: {energy} шт.\n"
-            f"🔩 Гвоздей: {nails} шт.\n"
-            f"⭐️ Рейтинг: {profile_info['rating']}.\n"  # Отображаем рейтинг
+       f"👤 Ваш профиль:\n"
+       f"🆔 : {user_id}\n"
+       f"🏢 Статус: {profile_info['status']}\n"
+       f"🪙 ŵ-coin: {profile_info.get('w_coin', 0)}\n"
+       f"🔩 Баланс: {profile_info.get('balance', 0)} гв.\n"
+       f"📊 Уровень базы: {profile_info.get('base_level', 1)}\n"
+       f"⭐️ Опыт: {profile_info['experience']}\n"
+       f"📅 Дата регистрации: {profile_info['registration_date']}\n"
+       f"💧 Вода: {water}/20 л.\n"
+       f"⚡️ Энергия: {energy} шт.\n"
+       f"🔩 Гвоздей: {nails} шт.\n"
+       f"⭐️ Рейтинг: {profile_info.get('rating', 0)}.\n"  # Используем .get() для безопасного доступа
         )
 
         bot.send_message(message.chat.id, profile_message, parse_mode='HTML', reply_markup=markup)
