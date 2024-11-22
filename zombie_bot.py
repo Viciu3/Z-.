@@ -103,7 +103,7 @@ def handle_create_profile_callback(call):
         bot.send_message(call.message.chat.id, "Ваш игровой профиль создан! \nНапишите - <code>База</code> , для просмотра профиля.", parse_mode='HTML')
     else:
         bot.send_message(call.message.chat.id, "Профиль уже существует. Напишите - <code>База</code> , для просмотра профиля.", parse_mode='HTML')
-
+            
 @bot.message_handler(func=lambda message: message.text.lower() in ["база", "б"])
 def view_profile(message):
     user_id = str(message.from_user.id)
@@ -112,6 +112,10 @@ def view_profile(message):
         water = profile_info.get('water', 0)
         energy = profile_info.get('energy', 0)
         nails = profile_info.get('nails', {}).get('normal', 0)
+
+        # Проверяем наличие ключа 'rating' и инициализируем его, если отсутствует
+        if 'rating' not in profile_info:
+            profile_info['rating'] = 0
 
         markup = types.InlineKeyboardMarkup(row_width=2)
         markup.add(
@@ -136,18 +140,18 @@ def view_profile(message):
             bot.send_message(message.chat.id, "🌐 Ваш аватар: Нет аватарки.")
 
         profile_message = (
-       f"👤 Ваш профиль:\n"
-       f"🆔 : {user_id}\n"
-       f"🏢 Статус: {profile_info['status']}\n"
-       f"🪙 ŵ-coin: {profile_info.get('w_coin', 0)}\n"
-       f"🔩 Баланс: {profile_info.get('balance', 0)} гв.\n"
-       f"📊 Уровень базы: {profile_info.get('base_level', 1)}\n"
-       f"⭐️ Опыт: {profile_info['experience']}\n"
-       f"📅 Дата регистрации: {profile_info['registration_date']}\n"
-       f"💧 Вода: {water}/20 л.\n"
-       f"⚡️ Энергия: {energy} шт.\n"
-       f"🔩 Гвоздей: {nails} шт.\n"
-       f"⭐️ Рейтинг: {profile_info.get('rating', 0)}.\n"  # Используем .get() для безопасного доступа
+            f"👤 Ваш профиль:\n"
+            f"🆔 : {user_id}\n"
+            f"🏢 Статус: {profile_info['status']}\n"
+            f"🪙 ŵ-coin: {profile_info.get('w_coin', 0)}\n"
+            f"🔩 Баланс: {profile_info.get('balance', 0)} гв.\n"
+            f"📊 Уровень базы: {profile_info.get('base_level', 1)}\n"
+            f"⭐️ Опыт: {profile_info['experience']}\n"
+            f"📅 Дата регистрации: {profile_info['registration_date']}\n"
+            f"💧 Вода: {water}/20 л.\n"
+            f"⚡️ Энергия: {energy} шт.\n"
+            f"🔩 Гвоздей: {nails} шт.\n"
+            f"⭐️ Рейтинг: {profile_info['rating']}.\n"  # Отображаем рейтинг
         )
 
         bot.send_message(message.chat.id, profile_message, parse_mode='HTML', reply_markup=markup)
