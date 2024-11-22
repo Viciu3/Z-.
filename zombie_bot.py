@@ -73,7 +73,8 @@ def initialize_profile(user_id, first_name):
         "generator_experience": 0,
         "generator_type": "водяной",
         "exploration_success": False,
-        "first_name": first_name
+        "first_name": first_name,
+        "rating": 0  # Добавлено поле для рейтинга
     }
 
 @bot.message_handler(commands=['start'])
@@ -145,6 +146,7 @@ def view_profile(message):
             f"💧 Вода: {water}/20 л.\n"
             f"⚡️ Энергия: {energy} шт.\n"
             f"🔩 Гвоздей: {nails} шт.\n"
+            f"⭐️ Рейтинг: {profile_info['rating']}.\n"  # Отображаем рейтинг
         )
 
         bot.send_message(message.chat.id, profile_message, parse_mode='HTML', reply_markup=markup)
@@ -373,6 +375,56 @@ def restore_water():
 def save_profiles():
     with open(PROFILES_FILE, 'w') as file:
         json.dump(user_profiles, file, indent=4)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'raid_instructions')
+def raid_instructions(call):
+    bot.send_message(call.message.chat.id, "Чтобы запустить рейд, напишите 'Рейд <ID>', где <ID> - это ID пользователя, которого вы хотите зарейдить.")
+
+@bot.message_handler(func=lambda message: message.text.lower().startswith("рейд"))
+def raid_user(message):
+    user_id = str(message.from_user.id)
+    target_id = message.text.split()[1]  # Получаем ID цели
+
+    if target_id not in user_profiles:
+        bot.send_message(message.chat.id, "Пользователь не найден.")
+        return
+
+    profile_info = user_profiles[user_id]
+    target_info = user_profiles[target_id]
+
+    # Проверяем наличие необходимого ресурса
+    if profile_info['weapons'] < 5 or profile_info['medkits'] < 7:
+        bot.send_message(message.chat.id, f"Недостаточно ресурсов для рейда!\nВам нужно 5 оружия и 7 медикаментов.")
+        return
+
+    # Уменьшаем ресурсы
+    profile_info['weapons'] -= 5
+    profile_info['medkits'] -= 7
+
+    save_profiles()
+
+    bot.send_message(message.chat.id, "Рейд запущен, через 30 секунд он закончится.")
+    
+    # Запускаем таймер на 30 секунд
+    threading.Timer(30, complete_raid, args=(user_id, target_id)).start()
+
+def complete_raid(user_id, target_id):
+    profile_info = user_profiles[user_id]
+    target_info = user_profiles[target_id]
+    
+    success = random.choice([True, False])  # Случайный успех/неудача рейда
+    if success:
+        earned_rating = random.randint(60, 120)
+        target_loss = earned_rating // 2
+        profile_info['rating'] += earned_rating  # Увеличиваем рейтинг
+        target_info['rating'] -= target_loss  # Уменьшаем рейтинг цели
+
+        bot.send_message(user_id, f"{profile_info['first_name']} вы успешно зарейдили {target_info['first_name']} на {earned_rating} рейтинга!")
+        bot.send_message(target_id, f"{target_info['first_name']} вы были зарейдены и потеряли {target_loss} рейтинга.")
+    else:
+        penalty = random.choice([30, 120])
+        profile_info['rating'] -= penalty  # Уменьшаем рейтинг
+        bot.send_message(user_id, f"Рейд не удался! Вы потеряли {penalty} рейтинга.")
 
 if __name__ == '__main__':
     # Запускаем фоновую задачу для восстановления воды
